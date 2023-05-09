@@ -676,6 +676,19 @@ func testExecutor(t T) {
 	require.NoError(t, pl.WritePlan(plan(t, "2_posts", &schema.AddTable{T: postsT})))
 	require.NoError(t, pl.WritePlan(plan(t, "3_pets", &schema.AddTable{T: petsT})))
 
+	// exclude tables created by postgis_topology and postgis_tiger_geocoder extensions.
+	if inspectOptionsDriver, ok := t.driver().(interface {
+		SetInspectRealmOption(inspectOptions *schema.InspectRealmOption)
+	}); ok {
+		inspectOptionsDriver.SetInspectRealmOption(&schema.InspectRealmOption{
+			Exclude: []string{
+				"tiger",
+				"tiger_data",
+				"topology",
+			},
+		})
+	}
+
 	ex, err := migrate.NewExecutor(t.driver(), dir, t.revisionsStorage())
 	require.NoError(t, err)
 	require.NoError(t, ex.ExecuteN(context.Background(), 2)) // usersT and postsT

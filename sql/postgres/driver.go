@@ -33,6 +33,9 @@ type (
 	// database connection and its information.
 	conn struct {
 		schema.ExecQuerier
+		// Options used during the Inspections processes.
+		inspectOptions     *schema.InspectOptions
+		inspectRealmOption *schema.InspectRealmOption
 		// The schema in the `search_path` parameter (if given).
 		schema string
 		// System variables that are set on `Open`.
@@ -180,7 +183,7 @@ func (d *Driver) Snapshot(ctx context.Context) (migrate.RestoreFunc, error) {
 	// Postgres will only then be considered bound to a schema if the `search_path` was given.
 	// In all other cases, the connection is considered bound to the realm.
 	if d.schema != "" {
-		s, err := d.InspectSchema(ctx, d.schema, nil)
+		s, err := d.InspectSchema(ctx, d.schema, d.inspectOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +191,7 @@ func (d *Driver) Snapshot(ctx context.Context) (migrate.RestoreFunc, error) {
 			return nil, &migrate.NotCleanError{Reason: fmt.Sprintf("found table %q in connected schema", s.Tables[0].Name)}
 		}
 		return func(ctx context.Context) error {
-			current, err := d.InspectSchema(ctx, s.Name, nil)
+			current, err := d.InspectSchema(ctx, s.Name, d.inspectOptions)
 			if err != nil {
 				return err
 			}
@@ -200,12 +203,12 @@ func (d *Driver) Snapshot(ctx context.Context) (migrate.RestoreFunc, error) {
 		}, nil
 	}
 	// Not bound to a schema.
-	realm, err := d.InspectRealm(ctx, nil)
+	realm, err := d.InspectRealm(ctx, d.inspectRealmOption)
 	if err != nil {
 		return nil, err
 	}
 	restore := func(ctx context.Context) error {
-		current, err := d.InspectRealm(ctx, nil)
+		current, err := d.InspectRealm(ctx, d.inspectRealmOption)
 		if err != nil {
 			return err
 		}
@@ -243,7 +246,7 @@ func (d *Driver) CheckClean(ctx context.Context, revT *migrate.TableIdent) error
 		revT = &migrate.TableIdent{}
 	}
 	if d.schema != "" {
-		switch s, err := d.InspectSchema(ctx, d.schema, nil); {
+		switch s, err := d.InspectSchema(ctx, d.schema, d.inspectOptions); {
 		case err != nil:
 			return err
 		case len(s.Tables) == 0, (revT.Schema == "" || s.Name == revT.Schema) && len(s.Tables) == 1 && s.Tables[0].Name == revT.Name:
@@ -252,7 +255,7 @@ func (d *Driver) CheckClean(ctx context.Context, revT *migrate.TableIdent) error
 			return &migrate.NotCleanError{Reason: fmt.Sprintf("found table %q in schema %q", s.Tables[0].Name, s.Name)}
 		}
 	}
-	r, err := d.InspectRealm(ctx, nil)
+	r, err := d.InspectRealm(ctx, d.inspectRealmOption)
 	if err != nil {
 		return err
 	}
@@ -273,6 +276,18 @@ func (d *Driver) CheckClean(ctx context.Context, revT *migrate.TableIdent) error
 // Version returns the version of the connected database.
 func (d *Driver) Version() string {
 	return strconv.Itoa(d.conn.version)
+}
+
+// SetInspectOptions allows providing *schema.InspectOptions to be used
+// on the Driver.CheckClean and Driver.Snapshot.
+func (d *Driver) SetInspectOptions(inspectOptions *schema.InspectOptions) {
+	d.inspectOptions = inspectOptions
+}
+
+// SetInspectRealmOption allows providing *schema.InspectRealmOption to be used
+// on the Driver.CheckClean and Driver.Snapshot.
+func (d *Driver) SetInspectRealmOption(inspectRealmOption *schema.InspectRealmOption) {
+	d.inspectRealmOption = inspectRealmOption
 }
 
 func acquire(ctx context.Context, conn schema.ExecQuerier, id uint32, timeout time.Duration) error {
