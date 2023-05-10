@@ -96,7 +96,18 @@ func TestPostgres_NoSchema(t *testing.T) {
 		})
 		_, err := t.db.Exec("DROP SCHEMA IF EXISTS public CASCADE")
 		require.NoError(t, err)
-		r, err := t.drv.InspectRealm(context.Background(), nil)
+		var opts *schema.InspectRealmOption
+		if t.version == "postgres-ext-postgis" {
+			// exclude tables created by postgis_topology and postgis_tiger_geocoder extensions.
+			opts = &schema.InspectRealmOption{
+				Exclude: []string{
+					"tiger",
+					"tiger_data",
+					"topology",
+				},
+			}
+		}
+		r, err := t.drv.InspectRealm(context.Background(), opts)
 		require.NoError(t, err)
 		require.Nil(t, r.Schemas)
 	})

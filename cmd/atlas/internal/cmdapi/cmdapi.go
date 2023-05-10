@@ -554,6 +554,21 @@ func sqlStateReader(ctx context.Context, config *stateReaderConfig, urls []*url.
 			opts = append(opts, migrate.ReplayToVersion(v))
 		}
 	}
+	if inspectOptionsDriver, ok := config.client.Driver.(interface {
+		SetInspectRealmOption(inspectOptions *schema.InspectRealmOption)
+		SetInspectOptions(inspectOptions *schema.InspectOptions)
+	}); ok {
+		switch config.client.URL.Schema {
+		case "":
+			inspectOptionsDriver.SetInspectRealmOption(&schema.InspectRealmOption{
+				Exclude: config.exclude,
+			})
+		default:
+			inspectOptionsDriver.SetInspectOptions(&schema.InspectOptions{
+				Exclude: config.exclude,
+			})
+		}
+	}
 	ex, err := migrate.NewExecutor(config.dev.Driver, dir, migrate.NopRevisionReadWriter{})
 	if err != nil {
 		return nil, err

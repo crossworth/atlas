@@ -284,6 +284,7 @@ type migrateDiffFlags struct {
 	dirURL, dirFormat string
 	devURL            string
 	schemas           []string
+	exclude           []string
 	lockTimeout       time.Duration
 	format            string
 	revisionSchema    string // revision schema name
@@ -326,6 +327,7 @@ directory state to the desired schema. The desired state can be another connecte
 	addFlagDirFormat(cmd.Flags(), &flags.dirFormat)
 	addFlagRevisionSchema(cmd.Flags(), &flags.revisionSchema)
 	addFlagSchemas(cmd.Flags(), &flags.schemas)
+	addFlagExclude(cmd.Flags(), &flags.exclude)
 	addFlagLockTimeout(cmd.Flags(), &flags.lockTimeout)
 	addFlagFormat(cmd.Flags(), &flags.format)
 	cmd.Flags().StringVar(&flags.qualifier, flagQualifier, "", "qualify tables with custom qualifier when working on a single schema")
@@ -392,6 +394,7 @@ func migrateDiffRun(cmd *cobra.Command, args []string, flags migrateDiffFlags) e
 		dev:     dev,
 		client:  dev,
 		schemas: flags.schemas,
+		exclude: flags.exclude,
 		vars:    GlobalFlags.Vars,
 	})
 	if err != nil {
